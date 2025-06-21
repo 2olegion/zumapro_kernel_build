@@ -26,12 +26,16 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 aarch64-linux-android-4.9
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 arm-linux-androideabi-4.9
-          git clone https://github.com/xiangfeidexiaohuo/Snapdragon-LLVM.git clang
-          
+          mkdir -p clang
+          curl -sL https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android14-dev/clang-r487747c.tar.gz | tar -xz -C clang/
+           if [ ! -d "aarch64-toolchain" ] || [ ! -d "arm-toolchain" ] || [ ! -d "clang" ]; then
+            echo "Fehler: Toolchains wurden nicht korrekt heruntergeladen oder entpackt."
+            exit 1
+          fi
       - name: Pull kernel source
         run: |
-          git clone --depth=1 ${{ env.KERNEL_SOURCE }} -b ${{ env.KERNEL_SOURCE_BRANCH }} kernel-source
-          
+           git clone --depth=1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ViP3R-KERNELs/android_kernel_google_zumapro.git -b ${{ env.KERNEL_SOURCE_BRANCH }} kernel-source
+
       - name: KernelSU
         run: |
           cd kernel-source
