@@ -63,11 +63,11 @@ jobs:
                                   CROSS_COMPILE=$GITHUB_WORKSPACE/aarch64-linux-android-4.9/bin/aarch64-linux-android- \
                                   CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/arm-linux-androideabi-4.9/bin/arm-linux-androideabi- "
           cd kernel-source
+
           make menuconfig
-          make xfonfig
-          make clean && make mrproper
-          make ${args} ${{ env.KERNEL_CONFIG }}
-          make -j$(nproc --all) ${args}
+          make -j $(nproc)
+          make modules_install
+          make install
 
       - name: Package kernel
         run: |
