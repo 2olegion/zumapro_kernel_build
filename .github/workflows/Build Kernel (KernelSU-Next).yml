@@ -1,4 +1,4 @@
-name: Build Kernel (KernelSU-Next)
+name: Build Kernel
 
 
 on:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-kernel:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Setup environment
@@ -19,27 +19,43 @@ jobs:
           echo "KERNEL_CONFIG=$(cat config.env | grep -w "KERNEL_CONFIG" | head -n 1 | cut -d "=" -f 2)" >> $GITHUB_ENV
           echo "BUILD_ARGS=$(cat config.env | grep -w "BUILD_ARGS" | head -n 1 | cut -d ":" -f 2)" >> $GITHUB_ENV
           sudo apt-get update
-          sudo apt install python2 libncurses5
-          sudo apt-get install libselinux-dev
-      - name: Pull toolchain
+          wget http://security.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb
+          sudo apt install ./libtinfo5_6.3-2ubuntu0.1_amd64.deb
+          sudo apt install -y libselinux-dev bc bison flex libssl-dev libelf-dev make libc6-dev-i386 dwarves gcc-aarch64-linux-gnu dkms bc mokutil build-essential linux-headers-`uname -r` clang
+      - name: Pull toolchain (ARM GNU Toolchain)
         run: |
-          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 aarch64-linux-android-4.9
-          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 arm-linux-androideabi-4.9
-          git clone https://github.com/xiangfeidexiaohuo/Snapdragon-LLVM.git clang
-          
+          # Download ARM GNU Toolchain für aarch64
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+          mkdir aarch64-toolchain
+          tar -xf arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz -C aarch64-toolchain --strip-components=1
+
+          # Download ARM GNU Toolchain für arm (32 Bit)
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-linux-gnueabihf.tar.xz
+          mkdir arm-toolchain
+          tar -xf arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-linux-gnueabihf.tar.xz -C arm-toolchain --strip-components=1
+
+          # Clang herunterladen und entpacken
+          mkdir -p clang
+          curl -sL https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android14-dev/clang-r487747c.tar.gz | tar -xz -C clang/
+
+          # Überprüfen, ob die Binaries existieren
+          if [ ! -d "aarch64-toolchain" ] || [ ! -d "arm-toolchain" ] || [ ! -d "clang" ]; then
+            echo "Fehler: Toolchains wurden nicht korrekt heruntergeladen oder entpackt."
+            exit 1
+          fi
       - name: Pull kernel source
         run: |
-          git clone --depth=1 ${{ env.KERNEL_SOURCE }} -b ${{ env.KERNEL_SOURCE_BRANCH }} kernel-source
-          
-      - name: KernelSU-Next
+           git clone --depth=1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ViP3R-KERNELs/android_kernel_google_zumapro.git -b ${{ env.KERNEL_SOURCE_BRANCH }} kernel-source
+
+      - name: KernelSU
         run: |
           cd kernel-source
-          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/refs/heads/next/kernel/setup.sh" | bash -s next
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
           cd ..
 
       - name: Build kernel
         run: |
-          export KBUILD_BUILD_USER="hiahia"
+          export KBUILD_BUILD_USER="2olegion"
           export PATH=$GITHUB_WORKSPACE/clang/bin:${PATH}
           args="                  ARCH=arm64 \
                                   O=../out \
@@ -49,6 +65,7 @@ jobs:
                                   CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/arm-linux-androideabi-4.9/bin/arm-linux-androideabi- "
           cd kernel-source
           clang -v
+          make clean && make mrproper
           make ${args} ${{ env.KERNEL_CONFIG }}
           make -j$(nproc --all) ${args}
 
